@@ -39,9 +39,10 @@
         <p class="text-xs text-slate-400" id="user-greeting">Загрузка...</p>
       </div>
     </div>
-    <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-950/80 text-purple-300 border border-purple-700/50">
-      PRO
-    </span>
+    <!-- Кнопка PRO теперь кликабельна -->
+    <button onclick="buyPro()" class="text-xs font-bold px-3 py-1.5 rounded-full bg-purple-900/60 text-purple-300 border border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.3)] hover:bg-purple-800 transition">
+      💎 Купить PRO
+    </button>
   </div>
 
   <!-- Навигация по модулям -->
@@ -90,7 +91,7 @@
   <div id="result-box" class="neon-border bg-slate-900/70 rounded-2xl p-4 hidden flex-col">
     <div class="flex items-center justify-between mb-2">
       <span class="text-xs font-semibold text-purple-300">Готовый результат:</span>
-      <button onclick="copyResult()" class="text-xs text-indigo-400 hover:text-indigo-300">Копировать</button>
+      <button onclick="copyResult()" class="text-xs text-indigo-400 font-bold hover:text-indigo-300 bg-indigo-900/40 px-2 py-1 rounded">📋 Копировать</button>
     </div>
     <div id="result-text" class="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto pr-1"></div>
   </div>
@@ -100,7 +101,6 @@
     tg.ready();
     tg.expand();
 
-    // Имя юзера из Telegram
     const user = tg.initDataUnsafe?.user;
     if (user) {
       document.getElementById('user-greeting').innerText = `@${user.username || user.first_name}`;
@@ -139,53 +139,3 @@
         input.placeholder = 'Вставь текст, который нужно переписать...';
         styleSelect.classList.remove('hidden');
       }
-    }
-
-    async function generateContent() {
-      const text = document.getElementById('prompt-input').value.trim();
-      if (!text) {
-        tg.HapticFeedback.notificationOccurred('error');
-        tg.showAlert('Пожалуйста, введи текст!');
-        return;
-      }
-
-      tg.HapticFeedback.impactOccurred('medium');
-      const btnText = document.getElementById('btn-text');
-      const btn = document.getElementById('submit-btn');
-      btnText.innerText = '🧠 Нейросеть думает...';
-      btn.disabled = true;
-
-      try {
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: currentMode,
-            prompt: text,
-            style: document.getElementById('tone-style').value,
-            initData: tg.initData
-          })
-        });
-
-        const data = await response.json();
-        
-        document.getElementById('result-box').classList.remove('hidden');
-        document.getElementById('result-text').innerText = data.result;
-        tg.HapticFeedback.notificationOccurred('success');
-      } catch (err) {
-        tg.showAlert('Ошибка связи с сервером AI!');
-      } finally {
-        btnText.innerText = 'Сгенерировать';
-        btn.disabled = false;
-      }
-    }
-
-    function copyResult() {
-      const text = document.getElementById('result-text').innerText;
-      navigator.clipboard.writeText(text);
-      tg.HapticFeedback.impactOccurred('light');
-      tg.showPopup({ title: 'Скопировано!', message: 'Текст в буфере обмена', buttons: [{ type: 'ok' }] });
-    }
-  </script>
-</body>
-</html>
