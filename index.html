@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Postora Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #0b0c16;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .neon-border {
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.15);
+    }
+    .neon-button {
+      background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+      box-shadow: 0 4px 15px rgba(168, 85, 247, 0.35);
+    }
+    .neon-button:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body class="p-4 flex flex-col min-h-screen">
+  <!-- Хедер -->
+  <div class="flex items-center justify-between mb-6 pb-3 border-b border-purple-900/40">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center font-black text-xl shadow-lg shadow-purple-600/50">
+        P
+      </div>
+      <div>
+        <h1 class="font-extrabold text-lg tracking-wide bg-gradient-to-r from-purple-400 to-indigo-300 bg-clip-text text-transparent">
+          POSTORA
+        </h1>
+        <p class="text-xs text-slate-400" id="user-greeting">Загрузка...</p>
+      </div>
+    </div>
+    <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-950/80 text-purple-300 border border-purple-700/50">
+      PRO
+    </span>
+  </div>
+
+  <!-- Навигация по модулям -->
+  <div class="grid grid-cols-2 gap-2 mb-4">
+    <button onclick="setTab('writer')" id="btn-writer" class="tab-btn py-2.5 px-3 rounded-xl text-xs font-semibold bg-purple-900/40 border border-purple-500/30 text-white">
+      ✍️ AI Writer
+    </button>
+    <button onclick="setTab('editor')" id="btn-editor" class="tab-btn py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-900/60 border border-transparent text-slate-400">
+      ✨ Smart Editor
+    </button>
+    <button onclick="setTab('planner')" id="btn-planner" class="tab-btn py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-900/60 border border-transparent text-slate-400">
+      📅 Planner
+    </button>
+    <button onclick="setTab('rewriter')" id="btn-rewriter" class="tab-btn py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-900/60 border border-transparent text-slate-400">
+      🔄 Rewriter
+    </button>
+  </div>
+
+  <!-- Форма ввода -->
+  <div class="neon-border bg-slate-900/50 rounded-2xl p-4 flex-1 flex flex-col mb-4">
+    <label class="text-xs font-medium text-purple-300 mb-2 block" id="input-label">
+      О чем написать публикацию?
+    </label>
+    <textarea id="prompt-input" rows="4" 
+      placeholder="Например: 5 нейросетей для дизайнера в 2026 году..." 
+      class="w-full flex-1 bg-black/40 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-purple-500 transition resize-none"></textarea>
+
+    <!-- Селектор стиля для Rewriter -->
+    <div id="style-selector" class="mt-3 hidden">
+      <label class="text-xs text-slate-400 mb-1.5 block">Тональность:</label>
+      <select id="tone-style" class="w-full bg-black/50 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:outline-none">
+        <option value="formal">👔 Строгий и деловой</option>
+        <option value="hype">🔥 Хайповый и вирусный</option>
+        <option value="expert">🤓 Экспертный и аналитический</option>
+        <option value="funny">😂 Юмористический</option>
+      </select>
+    </div>
+
+    <!-- Кнопка генерации -->
+    <button onclick="generateContent()" id="submit-btn" class="neon-button text-white font-bold py-3 px-4 rounded-xl text-sm mt-4 w-full flex items-center justify-center space-x-2">
+      <span id="btn-text">Сгенерировать</span>
+    </button>
+  </div>
+
+  <!-- Результат генерации -->
+  <div id="result-box" class="neon-border bg-slate-900/70 rounded-2xl p-4 hidden flex-col">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs font-semibold text-purple-300">Готовый результат:</span>
+      <button onclick="copyResult()" class="text-xs text-indigo-400 hover:text-indigo-300">Копировать</button>
+    </div>
+    <div id="result-text" class="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto pr-1"></div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    // Имя юзера из Telegram
+    const user = tg.initDataUnsafe?.user;
+    if (user) {
+      document.getElementById('user-greeting').innerText = `@${user.username || user.first_name}`;
+    } else {
+      document.getElementById('user-greeting').innerText = 'Гость';
+    }
+
+    let currentMode = 'writer';
+
+    function setTab(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.className = 'tab-btn py-2.5 px-3 rounded-xl text-xs font-semibold bg-slate-900/60 border border-transparent text-slate-400';
+      });
+
+      const activeBtn = document.getElementById(`btn-${mode}`);
+      activeBtn.className = 'tab-btn py-2.5 px-3 rounded-xl text-xs font-semibold bg-purple-900/40 border border-purple-500/30 text-white';
+
+      const label = document.getElementById('input-label');
+      const input = document.getElementById('prompt-input');
+      const styleSelect = document.getElementById('style-selector');
+
+      styleSelect.classList.add('hidden');
+
+      if (mode === 'writer') {
+        label.innerText = 'О чем написать публикацию?';
+        input.placeholder = 'Короткая мысль: топ привычек программиста...';
+      } else if (mode === 'editor') {
+        label.innerText = 'Вставь сырой текст для оформления:';
+        input.placeholder = 'Вставь сплошную простыню текста сюда...';
+      } else if (mode === 'planner') {
+        label.innerText = 'Тематика Telegram-канала:';
+        input.placeholder = 'Например: Крипта, Спорт, Личный блог...';
+      } else if (mode === 'rewriter') {
+        label.innerText = 'Текст для рерайта:';
+        input.placeholder = 'Вставь текст, который нужно переписать...';
+        styleSelect.classList.remove('hidden');
+      }
+    }
+
+    async function generateContent() {
+      const text = document.getElementById('prompt-input').value.trim();
+      if (!text) {
+        tg.HapticFeedback.notificationOccurred('error');
+        tg.showAlert('Пожалуйста, введи текст!');
+        return;
+      }
+
+      tg.HapticFeedback.impactOccurred('medium');
+      const btnText = document.getElementById('btn-text');
+      const btn = document.getElementById('submit-btn');
+      btnText.innerText = '🧠 Нейросеть думает...';
+      btn.disabled = true;
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: currentMode,
+            prompt: text,
+            style: document.getElementById('tone-style').value,
+            initData: tg.initData
+          })
+        });
+
+        const data = await response.json();
+        
+        document.getElementById('result-box').classList.remove('hidden');
+        document.getElementById('result-text').innerText = data.result;
+        tg.HapticFeedback.notificationOccurred('success');
+      } catch (err) {
+        tg.showAlert('Ошибка связи с сервером AI!');
+      } finally {
+        btnText.innerText = 'Сгенерировать';
+        btn.disabled = false;
+      }
+    }
+
+    function copyResult() {
+      const text = document.getElementById('result-text').innerText;
+      navigator.clipboard.writeText(text);
+      tg.HapticFeedback.impactOccurred('light');
+      tg.showPopup({ title: 'Скопировано!', message: 'Текст в буфере обмена', buttons: [{ type: 'ok' }] });
+    }
+  </script>
+</body>
+</html>
